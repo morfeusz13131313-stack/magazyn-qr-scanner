@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+  <title>MAGAZYN QR – Skaner</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111827;
+      color: white;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    .header {
+      padding: 16px;
+      text-align: center;
+      background: #030712;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .container {
+      padding: 12px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    .camera {
+      position: relative;
+      width: 100%;
+      background: black;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 3 / 4;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .scan-frame {
+      position: absolute;
+      left: 15%;
+      top: 25%;
+      width: 70%;
+      height: 35%;
+      border: 3px solid #22c55e;
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 9999px rgba(0,0,0,.25);
+      pointer-events: none;
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 15%;
+      width: 70%;
+      top: 25%;
+      height: 2px;
+      background: #22c55e;
+      animation: scan 2s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes scan {
+
+      0% {
+        top: 25%;
+      }
+
+      50% {
+        top: 60%;
+      }
+
+      100% {
+        top: 25%;
+      }
+
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      background: #1f2937;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .result {
+      margin-top: 12px;
+      padding: 12px;
+      background: #064e3b;
+      border-radius: 8px;
+      word-break: break-word;
+      display: none;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+      background: #2563eb;
+    }
+
+    button.green {
+      background: #16a34a;
+    }
+
+    button.red {
+      background: #dc2626;
+    }
+
+    button.gray {
+      background: #6b7280;
+    }
+
+    .manual {
+      margin-top: 15px;
+      padding: 14px;
+      background: #1f2937;
+      border-radius: 10px;
+    }
+
+    .manual h3 {
+      margin-top: 0;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 7px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: white;
+      font-size: 15px;
+    }
+
+    .manual button {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .small {
+      margin-top: 10px;
+      color: #9ca3af;
+      font-size: 12px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+<div class="header">
+  📷 MAGAZYN QR
+</div>
+
+
+<div class="container">
+
+  <div class="camera">
+
+    <video
+      id="video"
+      playsinline
+      muted>
+    </video>
+
+    <div
+      class="scan-frame">
+    </div>
+
+    <div
+      class="scan-line">
+    </div>
+
+  </div>
+
+
+  <div
+    id="status"
+    class="status">
+    Naciśnij „URUCHOM APARAT”
+  </div>
+
+
+  <div
+    id="result"
+    class="result">
+  </div>
+
+
+  <div class="buttons">
+
+    <button
+      class="green"
+      id="startButton">
+      📷 URUCHOM APARAT
+    </button>
+
+    <button
+      class="red"
+      id="stopButton">
+      ⛔ ZATRZYMAJ
+    </button>
+
+  </div>
+
+
+  <div class="manual">
+
+    <h3>
+      ✏️ Wpisz kod ręcznie
+    </h3>
+
+    <input
+      id="manualInput"
+      placeholder="Wpisz pełny kod QR">
+
+    <button
+      class="green"
+      id="manualButton">
+      ✔ PRZEKAŻ KOD
+    </button>
+
+  </div>
+
+
+  <div class="small">
+
+    Kamera działa na stronie HTTPS.
+    Przy pierwszym uruchomieniu przeglądarka poprosi
+    o zgodę na użycie aparatu.
+
+  </div>
+
+</div>
+
+
+<script type="module">
+
+
+/*
+==========================================================
+  QRSCANNER
+==========================================================
+
+  Ładujemy gotową bibliotekę QrScanner.
+
+  Biblioteka jest open-source MIT.
+==========================================================
+*/
+
+
+import QrScanner from
+  'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js';
+
+
+/*
+==========================================================
+  PARAMETRY
+==========================================================
+*/
+
+const params =
+  new URLSearchParams(
+    window.location.search
+  );
+
+
+const target =
+  params.get('target') ||
+  '';
+
+
+/*
+==========================================================
+  ELEMENTY
+==========================================================
+*/
+
+const video =
+  document.getElementById(
+    'video'
+  );
+
+
+const status =
+  document.getElementById(
+    'status'
+  );
+
+
+const result =
+  document.getElementById(
+    'result'
+  );
+
+
+const manualInput =
+  document.getElementById(
+    'manualInput'
+  );
+
+
+const startButton =
+  document.getElementById(
+    'startButton'
+  );
+
+
+const stopButton =
+  document.getElementById(
+    'stopButton'
+  );
+
+
+const manualButton =
+  document.getElementById(
+    'manualButton'
+  );
+
+
+/*
+==========================================================
+  SKANER
+==========================================================
+*/
+
+let scanner = null;
+
+let alreadySent = false;
+
+
+/*
+==========================================================
+  STATUS
+==========================================================
+*/
+
+function setStatus(
+  text
+) {
+
+  status.textContent =
+    text;
+
+}
+
+
+/*
+==========================================================
+  POKAZANIE WYNIKU
+==========================================================
+*/
+
+function showResult(
+  text
+) {
+
+  result.style.display =
+    'block';
+
+  result.textContent =
+    text;
+
+}
+
+
+/*
+==========================================================
+  PRZEKAZANIE DO INDEX.HTML
+==========================================================
+*/
+
+function sendResult(
+  text
+) {
+
+  if (
+    alreadySent
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    !text ||
+    !text.trim()
+  ) {
+
+    return;
+
+  }
+
+
+  alreadySent =
+    true;
+
+
+  text =
+    text.trim();
+
+
+  showResult(
+    text
+  );
+
+
+  setStatus(
+    '✔ Kod odczytany'
+  );
+
+
+  /*
+  --------------------------------------------------------
+  Wysyłamy kod do okna MAGAZYN QR.
+  --------------------------------------------------------
+  */
+
+  if (
+    window.opener &&
+    !window.opener.closed
+  ) {
+
+    window.opener.postMessage(
+
+      {
+        type:
+          'MAGAZYN_QR_SCANNED',
+
+        value:
+          text,
+
+        target:
+          target
+      },
+
+      '*'
+
+    );
+
+  }
+
+
+  /*
+  --------------------------------------------------------
+  Po krótkiej chwili zamykamy skaner.
+  --------------------------------------------------------
+  */
+
+  setTimeout(
+    function() {
+
+      if (
+        window.opener &&
+        !window.opener.closed
+      ) {
+
+        window.close();
+
+      }
+
+    },
+    500
+  );
+
+}
+
+
+/*
+==========================================================
+  URUCHOMIENIE SKANERA
+==========================================================
+*/
+
+async function startScanner() {
+
+  alreadySent =
+    false;
+
+
+  try {
+
+    if (!scanner) {
+
+      scanner =
+        new QrScanner(
+
+          video,
+
+          function(result) {
+
+            /*
+            W zależności od wersji QrScanner
+            wynik może być obiektem ScanResult
+            albo tekstem.
+            */
+
+            let text = '';
+
+
+            if (
+              typeof result ===
+              'string'
+            ) {
+
+              text =
+                result;
+
+            } else if (
+              result &&
+              result.data
+            ) {
+
+              text =
+                result.data;
+
+            }
+
+
+            if (text) {
+
+              sendResult(
+                text
+              );
+
+            }
+
+          },
+
+          {
+
+            preferredCamera:
+              'environment',
+
+            maxScansPerSecond:
+              15,
+
+            highlightScanRegion:
+              false,
+
+            highlightCodeOutline:
+              true,
+
+            returnDetailedScanResult:
+              true
+
+          }
+
+        );
+
+    }
+
+
+    setStatus(
+      'Uruchamianie aparatu...'
+    );
+
+
+    /*
+    ------------------------------------------------------
+    Tutaj przeglądarka powinna poprosić o dostęp
+    do kamery.
+    ------------------------------------------------------
+    */
+
+    await scanner.start();
+
+
+    setStatus(
+      '📷 Szukam kodu QR...'
+    );
+
+
+  }
+
+  catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    setStatus(
+      '❌ Nie udało się uruchomić aparatu.'
+    );
+
+
+    let message =
+      'Sprawdź, czy strona działa przez HTTPS ' +
+      'i czy Chrome ma pozwolenie na aparat.';
+
+
+    if (
+      error &&
+      error.message
+    ) {
+
+      message +=
+        ' ' +
+        error.message;
+
+    }
+
+
+    showResult(
+      message
+    );
+
+  }
+
+}
+
+
+/*
+==========================================================
+  ZATRZYMANIE
+==========================================================
+*/
+
+function stopScanner() {
+
+  if (scanner) {
+
+    scanner.stop();
+
+    setStatus(
+      'Aparat zatrzymany.'
+    );
+
+  }
+
+}
+
+
+/*
+==========================================================
+  RĘCZNE WPROWADZENIE
+==========================================================
+*/
+
+function sendManual() {
+
+  const text =
+    manualInput.value.trim();
+
+
+  if (!text) {
+
+    alert(
+      'Wpisz kod QR.'
+    );
+
+    return;
+
+  }
+
+
+  sendResult(
+    text
+  );
+
+}
+
+
+/*
+==========================================================
+  PRZYCISKI
+==========================================================
+*/
+
+startButton.addEventListener(
+  'click',
+  startScanner
+);
+
+
+stopButton.addEventListener(
+  'click',
+  stopScanner
+);
+
+
+manualButton.addEventListener(
+  'click',
+  sendManual
+);
+
+
+/*
+==========================================================
+  ENTER W POLU RĘCZNYM
+==========================================================
+*/
+
+manualInput.addEventListener(
+  'keydown',
+  function(event) {
+
+    if (
+      event.key === 'Enter'
+    ) {
+
+      sendManual();
+
+    }
+
+  }
+);
+
+
+/*
+==========================================================
+  INFORMACJA O BRAKU OKNA RODZICA
+==========================================================
+*/
+
+if (
+  !window.opener
+) {
+
+  setStatus(
+    'Skaner uruchomiony samodzielnie.'
+  );
+
+}
+
+
+</script>
+
+</body>
+
+</html>
